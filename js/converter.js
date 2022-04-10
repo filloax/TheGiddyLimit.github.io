@@ -237,7 +237,7 @@ class CreatureConverter extends BaseConverter {
 	handleParse (input, cbOutput, cbWarning, isAppend) {
 		const opts = {
 			cbWarning,
-			cbOutput,
+			cbOutput: (obj, append, prop) => cbOutput(obj, append, prop || this.prop),
 			isAppend,
 			titleCaseFields: this._titleCaseFields,
 			isTitleCase: this._state.isTitleCase,
@@ -377,7 +377,7 @@ class SpellConverter extends BaseConverter {
 	handleParse (input, cbOutput, cbWarning, isAppend) {
 		const opts = {
 			cbWarning,
-			cbOutput,
+			cbOutput: (obj, append, prop) => cbOutput(obj, append, prop || this.prop),
 			isAppend,
 			titleCaseFields: this._titleCaseFields,
 			isTitleCase: this._state.isTitleCase,
@@ -432,7 +432,7 @@ class ItemConverter extends BaseConverter {
 	handleParse (input, cbOutput, cbWarning, isAppend) {
 		const opts = {
 			cbWarning,
-			cbOutput,
+			cbOutput: (obj, append, prop) => cbOutput(obj, append, prop || this.prop),
 			isAppend,
 			titleCaseFields: this._titleCaseFields,
 			isTitleCase: this._state.isTitleCase,
@@ -493,7 +493,7 @@ class FeatConverter extends BaseConverter {
 	handleParse (input, cbOutput, cbWarning, isAppend) {
 		const opts = {
 			cbWarning,
-			cbOutput,
+			cbOutput: (obj, append, prop) => cbOutput(obj, append, prop || this.prop),
 			isAppend,
 			titleCaseFields: this._titleCaseFields,
 			isTitleCase: this._state.isTitleCase,
@@ -543,7 +543,7 @@ class TableConverter extends BaseConverter {
 	handleParse (input, cbOutput, cbWarning, isAppend) {
 		const opts = {
 			cbWarning,
-			cbOutput,
+			cbOutput: (obj, append, prop) => cbOutput(obj, append, prop || this.prop),
 			isAppend,
 			titleCaseFields: this._titleCaseFields,
 			isTitleCase: this._state.isTitleCase,
@@ -678,74 +678,78 @@ class ConverterUi extends BaseComponent {
 			if (confirm(`Edits will be overwritten as you parse new statblocks. Enable anyway?`)) this._outReadOnly = false;
 		});
 
+		const getSource = it => (it.source || (it.inherits ? it.inherits.source : null));
+
 		const $btnSaveLocal = $(`#save_local`).click(async () => {
 			const output = this._outText;
 			if (output && output.trim()) {
 				try {
-					const prop = this.activeConverter.prop;
-					const entries = JSON.parse(`[${output}]`);
+					const props = JSON.parse(output);
+					for (const prop in props) {
+						const entries = props[prop];
 
-					const invalidSources = entries.map(it => !it.source || !BrewUtil.hasSourceJson(it.source) ? (it.name || it.caption || "(Unnamed)").trim() : false).filter(Boolean);
-					if (invalidSources.length) {
-						JqueryUtil.doToast({
-							content: `One or more entries have missing or unknown sources: ${invalidSources.join(", ")}`,
-							type: "danger",
-						});
-						return;
-					}
-
-					// ignore duplicates
-					const _dupes = {};
-					const dupes = [];
-					const dedupedEntries = entries.map(it => {
-						const lSource = it.source.toLowerCase();
-						const lName = it.name.toLowerCase();
-						_dupes[lSource] = _dupes[lSource] || {};
-						if (_dupes[lSource][lName]) {
-							dupes.push(it.name);
-							return null;
-						} else {
-							_dupes[lSource][lName] = true;
-							return it;
+						const invalidSources = entries.map(it => !getSource(it) || !BrewUtil.hasSourceJson(getSource(it)) ? (it.name || it.caption || "(Unnamed)").trim() : false).filter(Boolean);
+						if (invalidSources.length) {
+							JqueryUtil.doToast({
+								content: `One or more entries have missing or unknown sources: ${invalidSources.join(", ")}`,
+								type: "danger",
+							});
+							return;
 						}
-					}).filter(Boolean);
-					if (dupes.length) {
-						JqueryUtil.doToast({
-							type: "warning",
-							content: `Ignored ${dupes.length} duplicate entr${dupes.length === 1 ? "y" : "ies"}`,
-						})
-					}
-
-					// handle overwrites
-					const overwriteMeta = dedupedEntries.map(it => {
-						const ix = (BrewUtil.homebrew[prop] || []).findIndex(bru => bru.name.toLowerCase() === it.name.toLowerCase() && bru.source.toLowerCase() === it.source.toLowerCase());
-						if (~ix) {
-							return {
-								isOverwrite: true,
-								ix,
-								entry: it,
+	
+						// ignore duplicates
+						const _dupes = {};
+						const dupes = [];
+						const dedupedEntries = entries.map(it => {
+							const lSource = getSource(it).toLowerCase();
+							const lName = it.name.toLowerCase();
+							_dupes[lSource] = _dupes[lSource] || {};
+							if (_dupes[lSource][lName]) {
+								dupes.push(it.name);
+								return null;
+							} else {
+								_dupes[lSource][lName] = true;
+								return it;
 							}
-						} else return {entry: it, isOverwrite: false};
-					}).filter(Boolean);
-					const willOverwrite = overwriteMeta.map(it => it.isOverwrite).filter(Boolean);
-					if (willOverwrite.length && !confirm(`This will overwrite ${willOverwrite.length} entr${willOverwrite.length === 1 ? "y" : "ies"}. Are you sure?`)) {
-						return;
-					}
-
-					await Promise.all(overwriteMeta.map(meta => {
-						if (meta.isOverwrite) {
-							return BrewUtil.pUpdateEntryByIx(prop, meta.ix, MiscUtil.copy(meta.entry));
-						} else {
-							return BrewUtil.pAddEntry(prop, MiscUtil.copy(meta.entry));
+						}).filter(Boolean);
+						if (dupes.length) {
+							JqueryUtil.doToast({
+								type: "warning",
+								content: `Ignored ${dupes.length} duplicate entr${dupes.length === 1 ? "y" : "ies"}`,
+							})
 						}
-					}));
-
-					JqueryUtil.doToast({
-						type: "success",
-						content: `Saved!`,
-					});
-
-					Omnisearch.pAddToIndex("monster", overwriteMeta.filter(meta => !meta.isOverwrite).map(meta => meta.entry));
+	
+						// handle overwrites
+						const overwriteMeta = dedupedEntries.map(it => {
+							const ix = (BrewUtil.homebrew[prop] || []).findIndex(bru => bru.name.toLowerCase() === it.name.toLowerCase() && getSource(bru).toLowerCase() === getSource(it).toLowerCase());
+							if (~ix) {
+								return {
+									isOverwrite: true,
+									ix,
+									entry: it,
+								}
+							} else return {entry: it, isOverwrite: false};
+						}).filter(Boolean);
+						const willOverwrite = overwriteMeta.map(it => it.isOverwrite).filter(Boolean);
+						if (willOverwrite.length && !confirm(`This will overwrite ${willOverwrite.length} entr${willOverwrite.length === 1 ? "y" : "ies"}. Are you sure?`)) {
+							return;
+						}
+	
+						await Promise.all(overwriteMeta.map(meta => {
+							if (meta.isOverwrite) {
+								return BrewUtil.pUpdateEntryByIx(prop, meta.ix, MiscUtil.copy(meta.entry));
+							} else {
+								return BrewUtil.pAddEntry(prop, MiscUtil.copy(meta.entry));
+							}
+						}));
+	
+						JqueryUtil.doToast({
+							type: "success",
+							content: `Saved!`,
+						});
+	
+						Omnisearch.pAddToIndex("monster", overwriteMeta.filter(meta => !meta.isOverwrite).map(meta => meta.entry));	
+					}
 				} catch (e) {
 					JqueryUtil.doToast({
 						content: `Current output was not valid JSON!`,
@@ -882,15 +886,39 @@ class ConverterUi extends BaseComponent {
 		this._editorOut.resize();
 	}
 
-	doCleanAndOutput (obj, append) {
-		const asCleanString = CleanUtil.getCleanJson(obj);
+	doCleanAndOutput (obj, append, prop) {
+		prop = prop || "SET_PROP";
+
+		const asCleanString = CleanUtil.getCleanJson(obj).slice(0, -1);
 		if (append) {
-			this._outText = `${asCleanString},\n${this._outText}`;
+			if (!this._outProps[prop]) {
+				this._outProps[prop] = []
+			}
+			this._outProps[prop].push(asCleanString)
 			this._state.hasAppended = true;
 		} else {
-			this._outText = asCleanString;
+			// to track the current rendered props and 
+			// add new items to teir lists more easily
+			this._outProps = {
+				[prop]: [asCleanString]
+			};
+
 			this._state.hasAppended = false;
 		}
+		const propToString = prop => `"${prop}": [\n\t`
+			+ this._outProps[prop]
+				.join(",\n")
+				.replace(/\n/g, "\n\t")
+			+ "\n]";
+
+		let outStrings = []
+		for (const prop in this._outProps) {
+			outStrings.push(propToString(prop))
+		}
+		this._outText = `{\n\t${
+			outStrings.join(",\n")
+					  .replace(/\n/g, "\n\t")
+		}\n}`;
 	}
 
 	set _outReadOnly (val) { this._editorOut.setOptions({readOnly: val}); }
