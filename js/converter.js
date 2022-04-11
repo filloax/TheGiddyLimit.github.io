@@ -832,6 +832,10 @@ class ConverterUi extends BaseComponent {
 							isAppend || i !== 0, // always clear the output for the first non-append chunk, then append
 						);
 					});
+
+				if (!this._state.renderTextEachTime) {
+					this.doRenderOutput();
+				}
 			});
 		};
 
@@ -884,6 +888,8 @@ class ConverterUi extends BaseComponent {
 	showWarning (text) {
 		$(`#lastWarnings`).show().append(`<div>[Warning] ${text}</div>`);
 		this._editorOut.resize();
+
+		if (this._state.printWarningsToConsole) console.warn(text);
 	}
 
 	doCleanAndOutput (obj, append, prop) {
@@ -905,6 +911,13 @@ class ConverterUi extends BaseComponent {
 
 			this._state.hasAppended = false;
 		}
+
+		if (this._state.renderTextEachTime) {
+			this.doRenderOutput();
+		}
+	}
+
+	doRenderOutput () {
 		const propToString = prop => `"${prop}": [\n\t`
 			+ this._outProps[prop]
 				.join(",\n")
@@ -938,6 +951,8 @@ ConverterUi._DEFAULT_STATE = {
 	converter: "Creature",
 	sourceJson: "",
 	inputSeparator: "===",
+	renderTextEachTime: true,
+	printWarningsToConsole: true,
 };
 
 async function doPageInit () {
