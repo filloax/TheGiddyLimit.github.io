@@ -5819,7 +5819,20 @@ Renderer.item = {
 	},
 
 	_createSpecificVariants_hasRequiredProperty (baseItem, genericVariant) {
-		return genericVariant.requires.some(req => Object.entries(req).every(([k, v]) => baseItem[k] === v));
+		return genericVariant.requires.some(req => Object.entries(req).every(([k, v]) => {
+			if (baseItem[k] === v) return true;
+			// for matching only some of an array value, like for item properties
+			if (v.includes) {
+				if (v.includes instanceof Array) {
+					return (baseItem[k] instanceof Array 
+						? baseItem[k].find(it => v.includes.includes(it)) 
+						: v.includes.includes(baseItem[k])
+					);
+				}
+				return baseItem[k] instanceof Array ? baseItem[k].find(it => v.includes === it) : v.includes === baseItem[k];
+			}
+			return false;
+		}));
 	},
 
 	_createSpecificVariants_hasExcludedProperty (baseItem, genericVariant) {
