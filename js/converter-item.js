@@ -116,17 +116,25 @@ class ItemParser extends BaseParser {
 
 	static _doItemPostProcess_addTags (stats, options) {
 		const manName = stats.name ? `(${stats.name}) ` : "";
-		SpellTag.tryRun(stats);
-		ChargeTag.tryRun(stats);
-		RechargeTypeTag.tryRun(stats, {cbMan: () => options.cbWarning(`${manName}Recharge type requires manual conversion`)});
-		BonusTag.tryRun(stats);
-		ItemMiscTag.tryRun(stats);
-		ItemSpellcastingFocusTag.tryRun(stats);
-		DamageResistanceTag.tryRun(stats);
-		DamageImmunityTag.tryRun(stats);
-		DamageVulnerabilityTag.tryRun(stats);
-		ConditionImmunityTag.tryRun(stats);
-		ReqAttuneTagTag.tryRun(stats);
+		try {
+			SpellTag.tryRun(stats);
+			ChargeTag.tryRun(stats);
+			RechargeTypeTag.tryRun(stats, {cbMan: () => options.cbWarning(`${manName}Recharge type requires manual conversion`)});
+			BonusTag.tryRun(stats);
+			ItemMiscTag.tryRun(stats);
+			ItemSpellcastingFocusTag.tryRun(stats);
+			DamageResistanceTag.tryRun(stats);
+			DamageImmunityTag.tryRun(stats);
+			DamageVulnerabilityTag.tryRun(stats);
+			ConditionImmunityTag.tryRun(stats);
+			ReqAttuneTagTag.tryRun(stats);
+		} catch (e) {
+			JqueryUtil.doToast({
+				content: `Error in tags for ${manName}!`,
+				type: "danger",
+			});
+			setTimeout(() => { throw e });
+		}
 
 		// TODO
 		//  - tag damage type?
@@ -238,9 +246,6 @@ class ItemParser extends BaseParser {
 			if (partLower === "weapon" || partLower === "weapon (any)") {
 				genericType = "weapon";
 				continue;
-			} else if (partLower === "weapon (any sword)") {
-				genericType = "sword";
-				continue;
 			} else if (partLower === "armor" || partLower === "armor (any)") {
 				genericType = "armor";
 				continue;
@@ -272,15 +277,36 @@ class ItemParser extends BaseParser {
 				baseItem = ItemParser.getItem(mBaseWeapon[2]);
 				if (!baseItem) {
 					// check if the items are a list
+					let handled = false;
 					let baseItems = mBaseWeapon[2]
 						.replace(/(a|an|any)\s+/, "")
 						.split(variantListPattern)
 						;
-					let handled = false;
 					baseItems.forEach((itemName) => {
-						let item = ItemParser.getItem(itemName);
-						if (!item) throw new Error(`Could not find base item "${itemName}"`);
-						genericVariantBases.push(item);
+						let found = true;
+						switch (itemName) {
+							case "melee": case "melee weapon":
+								genericType = "melee"; break;
+							case "ranged": case "ranged weapon":
+								genericType = "ranged"; break;
+							case "sword": genericType = "sword"; break;
+							case "axe": genericType = "axe"; break;
+							case "bow": genericType = "bow"; break;
+							case "crossbow":
+								if (genericType === "bow") {
+									genericType = "bow or crossbow";
+								} else {
+									genericType = "crossbow"
+								}
+								break;
+							default: found = false;
+						}
+
+						if (!found) {
+							let item = ItemParser.getItem(itemName);
+							if (!item) throw new Error(`Could not find base item "${itemName}"`);
+							genericVariantBases.push(item);
+						}
 						handled = true;
 					});
 					if (!handled) {
@@ -319,6 +345,7 @@ class ItemParser extends BaseParser {
 							;
 						baseItems.forEach((itemName) => {
 							let item = ItemParser.getItem(itemName);
+							if (!item) item = ItemParser.getItem(`${itemName} armor`); // "armor (plate)" -> "plate armor"
 							if (!item) throw new Error(`Could not find base item "${itemName}"`);
 							genericVariantBases.push(item);
 							handled = true;
@@ -394,7 +421,13 @@ class ItemParser extends BaseParser {
 		if (genericType) {
 			switch (genericType) {
 				case "weapon": stats.requires = [{"weapon": true}]; break;
+				case "melee": throw new Error("Unimplemented!");
+				case "ranged": throw new Error("Unimplemented!");
 				case "sword": stats.requires = [{"sword": true}]; break;
+				case "axe": stats.requires = [{"axe": true}]; break;
+				case "bow": stats.requires = [{"bow": true}]; break;
+				case "crossbow": stats.requires = [{"crossbow": true}]; break;
+				case "bow or crossbow": stats.requires = [{"bow": true}, {"crossbow": true}]; break;
 				case "armor": stats.requires = [{"armor": true}]; break;
 				case "heavy armor": stats.requires = [{"type": "HA"}]; break;
 				case "medium armor": stats.requires = [{"type": "MA"}]; break;
@@ -456,6 +489,7 @@ ItemParser._ALL_CLASSES = null;
 ItemParser._MAPPED_ITEM_NAMES = {
 	"studded leather": "studded leather armor",
 	"leather": "leather armor",
+	"bolt": "crossbow bolt",
 };
 
 if (typeof module !== "undefined") {
