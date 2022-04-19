@@ -124,21 +124,42 @@ class ItemParser extends BaseParser {
 
 	static _doItemPostProcess_addTags (stats, options) {
 		const manName = stats.name ? `(${stats.name}) ` : "";
+		let step = "start";
 		try {
-			SpellTag.tryRun(stats);
-			ChargeTag.tryRun(stats);
+			const defaultOptions = name => { return {
+				// For debugging if some options were needed
+				cbMan: str => {
+					if (options.verboseWarnings) {
+						options.cbWarning(`${manName}${name}: ${str}`);
+					}
+				}
+			} };
+
+			SpellTag.tryRun(stats, defaultOptions("SpellTag"));
+			step = "spell";
+			ChargeTag.tryRun(stats, defaultOptions("ChargeTag"));
+			step = "charge";
 			RechargeTypeTag.tryRun(stats, {cbMan: () => options.cbWarning(`${manName}Recharge type requires manual conversion`)});
-			BonusTag.tryRun(stats);
-			ItemMiscTag.tryRun(stats);
-			ItemSpellcastingFocusTag.tryRun(stats);
-			DamageResistanceTag.tryRun(stats);
-			DamageImmunityTag.tryRun(stats);
-			DamageVulnerabilityTag.tryRun(stats);
-			ConditionImmunityTag.tryRun(stats);
-			ReqAttuneTagTag.tryRun(stats);
+			step = "recharge";
+			BonusTag.tryRun(stats, defaultOptions("BonusTag"));
+			step = "bonus";
+			ItemMiscTag.tryRun(stats, defaultOptions("ItemMiscTag"));
+			step = "misc";
+			ItemSpellcastingFocusTag.tryRun(stats, defaultOptions("ItemSpellcastingFocusTag"));
+			step = "spellcastingFocus";
+			DamageResistanceTag.tryRun(stats, defaultOptions("DamageResistanceTag"));
+			step = "damageResistance";
+			DamageImmunityTag.tryRun(stats, defaultOptions("DamageImmunityTag"));
+			step = "damageImmunity";
+			DamageVulnerabilityTag.tryRun(stats, defaultOptions("DamageVulnerabilityTag"));
+			step = "damageVulnerability";
+			ConditionImmunityTag.tryRun(stats, defaultOptions("ConditionImmunityTag"));
+			step = "conditionImmunity";
+			ReqAttuneTagTag.tryRun(stats, defaultOptions("ReqAttuneTagTag"));
+			step = "reqAttuneTag";
 		} catch (e) {
 			JqueryUtil.doToast({
-				content: `Error in tags for ${manName}!`,
+				content: `Error in tags for ${manName}, step reached: ${step}!`,
 				type: "danger",
 			});
 			setTimeout(() => { throw e });

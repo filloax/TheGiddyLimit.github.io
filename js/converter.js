@@ -234,7 +234,7 @@ class CreatureConverter extends BaseConverter {
 		ConverterUiUtil.renderSideMenuDivider($wrpSidebar);
 	}
 
-	handleParse (input, cbOutput, cbWarning, isAppend) {
+	handleParse (input, cbOutput, cbWarning, isAppend, verboseWarnings) {
 		const opts = {
 			cbWarning,
 			cbOutput: (obj, append, prop) => cbOutput(obj, append, prop || this.prop),
@@ -374,7 +374,7 @@ class SpellConverter extends BaseConverter {
 		$wrpSidebar.empty();
 	}
 
-	handleParse (input, cbOutput, cbWarning, isAppend) {
+	handleParse (input, cbOutput, cbWarning, isAppend, verboseWarnings) {
 		const opts = {
 			cbWarning,
 			cbOutput: (obj, append, prop) => cbOutput(obj, append, prop || this.prop),
@@ -429,7 +429,7 @@ class ItemConverter extends BaseConverter {
 		$wrpSidebar.empty();
 	}
 
-	handleParse (input, cbOutput, cbWarning, isAppend) {
+	handleParse (input, cbOutput, cbWarning, isAppend, verboseWarnings) {
 		const opts = {
 			cbWarning,
 			cbOutput: (obj, append, prop) => cbOutput(obj, append, prop || this.prop),
@@ -438,6 +438,7 @@ class ItemConverter extends BaseConverter {
 			isTitleCase: this._state.isTitleCase,
 			source: this._state.source,
 			page: this._state.page,
+			verboseWarnings,
 		};
 
 		switch (this._state.mode) {
@@ -490,7 +491,7 @@ class FeatConverter extends BaseConverter {
 		$wrpSidebar.empty();
 	}
 
-	handleParse (input, cbOutput, cbWarning, isAppend) {
+	handleParse (input, cbOutput, cbWarning, isAppend, verboseWarnings) {
 		const opts = {
 			cbWarning,
 			cbOutput: (obj, append, prop) => cbOutput(obj, append, prop || this.prop),
@@ -540,7 +541,7 @@ class TableConverter extends BaseConverter {
 		$wrpSidebar.empty();
 	}
 
-	handleParse (input, cbOutput, cbWarning, isAppend) {
+	handleParse (input, cbOutput, cbWarning, isAppend, verboseWarnings) {
 		const opts = {
 			cbWarning,
 			cbOutput: (obj, append, prop) => cbOutput(obj, append, prop || this.prop),
@@ -828,6 +829,7 @@ class ConverterUi extends BaseComponent {
 							this.doCleanAndOutput.bind(this),
 							this.showWarning.bind(this),
 							isAppend || i !== 0, // always clear the output for the first non-append chunk, then append
+							this._state.verboseWarnings,
 						);
 					});
 
@@ -951,6 +953,7 @@ ConverterUi._DEFAULT_STATE = {
 	inputSeparator: "===",
 	renderTextEachTime: true,
 	printWarningsToConsole: true,
+	verboseWarnings: false,
 };
 
 async function doPageInit () {
